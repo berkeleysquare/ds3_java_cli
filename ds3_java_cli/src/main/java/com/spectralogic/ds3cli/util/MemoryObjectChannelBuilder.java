@@ -20,6 +20,7 @@ import com.spectralogic.ds3client.helpers.Ds3ClientHelpers;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
+import java.util.Random;
 
 /**
  * THIS CLASS DISCARDS ALL INCOMING RESTORE DATA!
@@ -51,22 +52,28 @@ public class MemoryObjectChannelBuilder implements Ds3ClientHelpers.ObjectChanne
 
     private class DevNullByteChannel implements SeekableByteChannel {
         final private int bufferSize;
-        final private byte[] backingArray;
+        private byte[] backingArray;
         final private long limit;
         private int position;
         private boolean isOpen;
+        private final Random random;
 
         public DevNullByteChannel(final int bufferSize, final long size) {
             this.bufferSize = bufferSize;
-            final byte[] bytes = new byte[bufferSize];
-            for (int i = 0; i < bufferSize; i++) {
-                bytes[i] = '1';
-            }
-            backingArray = bytes;
-
+            backingArray = new byte[bufferSize];
+            random = new Random(System.currentTimeMillis());
+            random.nextBytes(backingArray);
             this.position = 0;
             this.limit = size * 1024L * 1024L;
             this.isOpen = true;
+        }
+
+        // throw a new random chunk in the buffer
+        private void randomize() {
+            final int len = bufferSize / 10;
+            final byte[] newbytes =  new byte[len];
+            final int pos = random.nextInt(len * 9);
+            System.arraycopy(newbytes, 0, this.backingArray, pos, len);
         }
 
         public boolean isOpen() {
@@ -84,6 +91,7 @@ public class MemoryObjectChannelBuilder implements Ds3ClientHelpers.ObjectChanne
         }
 
         public int write(final ByteBuffer src) throws IOException {
+            this.randomize();
             final int amountToWrite = Math.min(src.remaining(), this.bufferSize);
             src.get(this.backingArray, 0, amountToWrite);
             return amountToWrite;

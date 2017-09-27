@@ -47,8 +47,13 @@ public class Performance extends CliCommand<DefaultResult> {
             .desc("Leave files on the applicance")
             .hasArg(false)
             .build();
+    private final static Option JUST_WRITE  = Option.builder()
+            .longOpt("just-write")
+            .desc("Write but do not read")
+            .hasArg(false)
+            .build();
     private final static ImmutableList<Option> optionalArgs
-            = ImmutableList.of(DO_NOT_DELETE);
+            = ImmutableList.of(DO_NOT_DELETE, JUST_WRITE);
     private final static ImmutableList<Option> requiredArgs
             = ImmutableList.of(BUCKET, NUMBER_OF_FILES, SIZE_OF_FILES);
 
@@ -58,6 +63,7 @@ public class Performance extends CliCommand<DefaultResult> {
     private int bufferSize;
     private int numberOfThreads;
     private boolean doNotDelete;
+    private boolean justWrite;
 
     public Performance() {
     }
@@ -73,6 +79,7 @@ public class Performance extends CliCommand<DefaultResult> {
         bufferSize = args.getBufferSize();
         this.numberOfThreads = args.getNumberOfThreads();
         this.doNotDelete = args.optionExists(DO_NOT_DELETE.getLongOpt());
+        this.justWrite = args.optionExists(JUST_WRITE.getLongOpt());
         return this;
     }
 
@@ -100,7 +107,9 @@ public class Performance extends CliCommand<DefaultResult> {
             transfer(helpers, numberOfFiles, sizeOfFiles, objList, true);
 
             /**** GET ****/
-            transfer(helpers, numberOfFiles, sizeOfFiles, objList, false);
+            if (!this.justWrite) {
+                transfer(helpers, numberOfFiles, sizeOfFiles, objList, false);
+            }
 
         } finally {
             if (!doNotDelete) deleteAllContents(getClient(), this.bucketName);
