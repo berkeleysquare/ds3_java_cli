@@ -52,8 +52,13 @@ public class Performance extends CliCommand<DefaultResult> {
             .desc("Write but do not read")
             .hasArg(false)
             .build();
+    private final static Option JUST_READ  = Option.builder()
+            .longOpt("just-read")
+            .desc("Read without write")
+            .hasArg(false)
+            .build();
     private final static ImmutableList<Option> optionalArgs
-            = ImmutableList.of(DO_NOT_DELETE, JUST_WRITE);
+            = ImmutableList.of(DO_NOT_DELETE, JUST_WRITE, JUST_READ);
     private final static ImmutableList<Option> requiredArgs
             = ImmutableList.of(BUCKET, NUMBER_OF_FILES, SIZE_OF_FILES);
 
@@ -64,6 +69,7 @@ public class Performance extends CliCommand<DefaultResult> {
     private int numberOfThreads;
     private boolean doNotDelete;
     private boolean justWrite;
+    private boolean justRead;
 
     public Performance() {
     }
@@ -80,6 +86,7 @@ public class Performance extends CliCommand<DefaultResult> {
         this.numberOfThreads = args.getNumberOfThreads();
         this.doNotDelete = args.optionExists(DO_NOT_DELETE.getLongOpt());
         this.justWrite = args.optionExists(JUST_WRITE.getLongOpt());
+        this.justRead = args.optionExists(JUST_READ.getLongOpt());
         return this;
     }
 
@@ -90,22 +97,22 @@ public class Performance extends CliCommand<DefaultResult> {
         final long sizeOfFiles = Long.valueOf(this.sizeOfFiles);
 
         try {
-            try {
-                final PutBucketRequest request = new PutBucketRequest(bucketName);
-                getClient().putBucket(request);
-            } catch(final FailedRequestException e) {
-                this.doNotDelete = true;
-                if (e.getStatusCode() == 409) {
-                    throw new CommandException("Bucket " + bucketName + " already exists. To avoid any conflicts please use a non-existent bucket.");
-                }
-                throw new CommandException("Encountered a DS3 Error", e);
-            }
-
             final List<Ds3Object> objList = getDs3Objects(numberOfFiles, sizeOfFiles);
 
-            /**** PUT ****/
-            transfer(helpers, numberOfFiles, sizeOfFiles, objList, true);
-
+            /**** Create Bucket and Put ****/
+            if (!this.justRead) {
+                try {
+                    final PutBucketRequest request = new PutBucketRequest(bucketName);
+                    getClient().putBucket(request);
+                } catch(final FailedRequestException e) {
+                    this.doNotDelete = true;
+                    if (e.getStatusCode() == 409) {
+                        throw new CommandException("Bucket " + bucketName + " already exists. To avoid any conflicts please use a non-existent bucket.");
+                    }
+                    throw new CommandException("Encountered a DS3 Error", e);
+                }
+                transfer(helpers, numberOfFiles, sizeOfFiles, objList, true);
+            }
             /**** GET ****/
             if (!this.justWrite) {
                 transfer(helpers, numberOfFiles, sizeOfFiles, objList, false);
